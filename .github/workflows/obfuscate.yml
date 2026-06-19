@@ -1,0 +1,51 @@
+name: 混淆最新源码
+
+on:
+  workflow_dispatch:   # 这行让工作流可以手动启动[reference:8][reference:9]
+
+jobs:
+  obfuscate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: 使用 Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "16"
+
+      - name: 安装混淆工具
+        run: npm install -g javascript-obfuscator
+
+      - name: 下载最新上游源码
+        run: |
+          curl -o 明文源码.js https://raw.githubusercontent.com/cmliu/edgetunnel/main/_worker.js
+
+      - name: 高强度混淆
+        run: |
+          javascript-obfuscator 明文源码.js --output _worker.js \
+            --compact true \
+            --control-flow-flattening true \
+            --control-flow-flattening-threshold 1 \
+            --dead-code-injection true \
+            --dead-code-injection-threshold 1 \
+            --identifier-names-generator hexadecimal \
+            --rename-globals true \
+            --string-array true \
+            --string-array-encoding 'rc4' \
+            --string-array-threshold 1 \
+            --transform-object-keys true \
+            --unicode-escape-sequence true
+
+      - name: 提交并推送混淆后的文件
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add _worker.js
+          git diff --cached --quiet || git commit -m "混淆 _worker.js（自动生成）"
+          git push
